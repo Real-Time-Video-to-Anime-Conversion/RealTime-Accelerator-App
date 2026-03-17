@@ -1,4 +1,4 @@
-package com.utkarsh.animex
+package com.utkarsh.animex.screens
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
@@ -57,7 +58,7 @@ fun CameraPreview(){
     val context = LocalContext.current
 
     AndroidView(
-        modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
             PreviewView(ctx).apply {
                 scaleType = PreviewView.ScaleType.FILL_CENTER
