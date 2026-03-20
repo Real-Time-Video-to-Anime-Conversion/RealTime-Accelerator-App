@@ -21,10 +21,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.utkarsh.animex.conversion.AnimeConverter
 import com.utkarsh.animex.conversion.PreProcessor
 import java.util.concurrent.Executors
@@ -61,8 +67,8 @@ class MainActivity : ComponentActivity() {
 fun MainScreen() {
     val context = LocalContext.current
     var processedBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var inferenceTime by remember { mutableLongStateOf(0L) }
     
-    // Manage converter lifecycle
     val animeConverter = remember { AnimeConverter(context) }
     val preProcessor = remember { PreProcessor() }
 
@@ -72,23 +78,53 @@ fun MainScreen() {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // CameraPreview runs in the background to feed the analysis pipeline
-        CameraPreview(
-            preProcessor = preProcessor,
-            animeConverter = animeConverter,
-            onBitmapProcessed = { bitmap ->
-                processedBitmap = bitmap
-            }
-        )
-
-        // Show the final processed bitmap on top of the preview
-        processedBitmap?.let { bitmap ->
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = "Anime Filtered View",
-                modifier = Modifier.fillMaxSize()
+    Column(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        // TOP HALF: Original Camera Feed
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            CameraPreview(
+                preProcessor = preProcessor,
+                animeConverter = animeConverter,
+                onBitmapProcessed = { bitmap, time ->
+                    processedBitmap = bitmap
+                    inferenceTime = time
+                }
             )
+            Text(
+                "ORIGINAL",
+                modifier = Modifier.align(Alignment.TopStart).padding(16.dp).background(Color.Black.copy(alpha = 0.5f)).padding(4.dp),
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        // BOTTOM HALF: Processed Anime Feed
+        Box(modifier = Modifier.weight(1f).fillMaxWidth().background(Color.DarkGray)) {
+            processedBitmap?.let { bitmap ->
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "Anime Filtered View",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop // This ensures it fills the half-screen
+                )
+            } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Processing...", color = Color.LightGray)
+            }
+            
+            // Labels and Stats
+            Column(modifier = Modifier.align(Alignment.TopStart).padding(16.dp)) {
+                Text(
+                    "ANIMEGAN V3",
+                    modifier = Modifier.background(Color.Black.copy(alpha = 0.5f)).padding(4.dp),
+                    color = Color.Cyan,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Inference: ${inferenceTime}ms",
+                    modifier = Modifier.padding(top = 4.dp).background(Color.Black.copy(alpha = 0.5f)).padding(4.dp),
+                    color = Color.White,
+                    fontSize = 12.sp
+                )
+            }
         }
     }
 }
@@ -97,9 +133,8 @@ fun MainScreen() {
 fun CameraPreview(
     preProcessor: PreProcessor,
     animeConverter: AnimeConverter,
-    onBitmapProcessed: (Bitmap) -> Unit
+    onBitmapProcessed: (Bitmap, Long) -> Unit
 ) {
-    val context = LocalContext.current
     val lifecycleOwner = LocalContext.current as LifecycleOwner
 
     AndroidView(
@@ -119,7 +154,7 @@ fun startCameraPipeline(
     lifecycleOwner: LifecycleOwner,
     preProcessor: PreProcessor,
     animeConverter: AnimeConverter,
-    onBitmapProcessed: (Bitmap) -> Unit
+    onBitmapProcessed: (Bitmap, Long) -> Unit
 ) {
     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
     val analysisExecutor = Executors.newSingleThreadExecutor()
@@ -128,12 +163,10 @@ fun startCameraPipeline(
     cameraProviderFuture.addListener({
         val cameraProvider = cameraProviderFuture.get()
 
-        // 1. Preview Use Case
         val preview = Preview.Builder().build().also {
             it.surfaceProvider = previewView.surfaceProvider
         }
 
-        // 2. Image Analysis Use Case (The Pipeline)
         val imageAnalysis = ImageAnalysis.Builder()
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
@@ -141,15 +174,12 @@ fun startCameraPipeline(
 
         imageAnalysis.setAnalyzer(analysisExecutor) { imageProxy ->
             try {
-                // STEP 1: Preprocess (YUV -> Bitmap -> TensorImage)
                 val tensorImage = preProcessor.preprocess(imageProxy)
-                
-                // STEP 2: Convert (Model Inference)
                 val resultBitmap = animeConverter.convert(tensorImage)
+                val time = animeConverter.lastInferenceTime
                 
-                // STEP 3: Update UI on Main Thread
                 mainExecutor.execute {
-                    onBitmapProcessed(resultBitmap)
+                    onBitmapProcessed(resultBitmap, time)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

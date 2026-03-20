@@ -16,6 +16,8 @@ class AnimeConverter(private val context: Context) {
 
     private var interpreter: Interpreter? = null
     private var outputBuffer: ByteBuffer? = null
+    var lastInferenceTime: Long = 0
+        private set
 
     companion object {
         const val INPUT_SIZE = 512
@@ -64,8 +66,8 @@ class AnimeConverter(private val context: Context) {
 
         val start = System.currentTimeMillis()
         interpreter.run(inputBuffer, buffer)
-        val time = System.currentTimeMillis() - start
-        println("Inference: ${time}ms")
+        lastInferenceTime = System.currentTimeMillis() - start
+        println("Inference: ${lastInferenceTime}ms")
 
         buffer.rewind()
         return uint8BufferToBitmap(buffer, outputShape[2], outputShape[1])
