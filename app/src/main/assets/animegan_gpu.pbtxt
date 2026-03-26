@@ -1,0 +1,66 @@
+input_stream: "input_video"
+output_stream: "output_video"
+
+node {
+  calculator: "GlScalerCalculator"
+  input_stream: "input_video"
+  output_stream: "scaled_video"
+  options: {
+    [mediapipe.GlScalerCalculatorOptions.ext] {
+      output_width: 512
+      output_height: 512
+      scale_mode: FILL_AND_CROP
+    }
+  }
+}
+
+node {
+  calculator: "ImageToTensorCalculator"
+  input_stream: "IMAGE_GPU:scaled_video"
+  output_stream: "TENSORS:input_tensors"
+  options: {
+    [mediapipe.ImageToTensorCalculatorOptions.ext] {
+      output_tensor_width: 512
+      output_tensor_height: 512
+      output_tensor_float_range {
+        min: -1.0
+        max: 1.0
+      }
+      keep_aspect_ratio: false
+      gpu_origin: TOP_LEFT
+    }
+  }
+}
+
+node {
+  calculator: "TfLiteInferenceCalculator"
+  input_stream: "TENSORS:input_tensors"
+  output_stream: "TENSORS:output_tensors"
+  options: {
+    [mediapipe.TfLiteInferenceCalculatorOptions.ext] {
+      model_path: "AnimeGANv3_Hayao_36_QUANTIZED_fp16.tflite"
+      delegate { gpu {} }
+    }
+  }
+}
+
+node {
+  calculator: "TensorsToImageCalculator"
+  input_stream: "TENSORS:output_tensors"
+  output_stream: "IMAGE:anime_image"
+  options: {
+    [mediapipe.tasks.TensorsToImageCalculatorOptions.ext] {
+      input_tensor_float_range {
+        min: -1.0
+        max: 1.0
+      }
+      gpu_origin: TOP_LEFT
+    }
+  }
+}
+
+node {
+  calculator: "FromImageCalculator"
+  input_stream: "IMAGE:anime_image"
+  output_stream: "IMAGE_GPU:output_video"
+}
