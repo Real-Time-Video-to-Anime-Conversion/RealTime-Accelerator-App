@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.utkarsh.animex"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -18,6 +18,23 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
+        }
+
+        // CMake build for NEON native library
+        externalNativeBuild {
+            cmake {
+                cppFlags += "-std=c++17"
+                arguments += "-DANDROID_ARM_NEON=TRUE"
+                abiFilters += "arm64-v8a"
+            }
+        }
+    }
+
+    // Point to CMakeLists.txt
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
         }
     }
 
@@ -51,7 +68,8 @@ android {
 }
 
 dependencies {
-
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
+    implementation("com.google.protobuf:protobuf-javalite:3.24.0")
     implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
     implementation("androidx.activity:activity-compose:1.13.0")
@@ -73,5 +91,9 @@ dependencies {
     implementation("androidx.camera:camera-view:1.5.3")
     implementation("org.tensorflow:tensorflow-lite:2.17.0")
     implementation("org.tensorflow:tensorflow-lite-gpu:2.17.0")
+    implementation("org.tensorflow:tensorflow-lite-gpu-api:2.17.0")
     implementation("org.tensorflow:tensorflow-lite-support:0.5.0")
+    implementation("com.google.flogger:flogger:0.9")
+    runtimeOnly("com.google.flogger:flogger-system-backend:0.9")
+    implementation("com.google.guava:guava:33.6.0-android")
 }

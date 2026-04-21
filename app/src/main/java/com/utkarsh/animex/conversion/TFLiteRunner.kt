@@ -70,7 +70,6 @@ class TFLiteRunner(
      * can be written into, preventing tearning without extra copies.
      */
     private val outputBitmaps = arrayOfNulls<Bitmap>(2)
-    // Swap between two output surfaces so the display never reads the bitmap being written.
     private var outputBitmapIndex = 0
 
     /** Reused pixel int[] for NEON → setPixels path. */
